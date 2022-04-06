@@ -65,8 +65,6 @@ fn main() -> Result<()> {
         Flags::BILINEAR,
     )?;
 
-    let mut i_frame = 0;
-
     for packet in input_ctx.packets().filter_map(|(stream, packet)| {
         if stream.index() == v_index {
             Some(packet)
@@ -77,23 +75,17 @@ fn main() -> Result<()> {
         decoder.send_packet(&packet)?;
 
         let mut v_frame = Video::empty();
-        while decoder.receive_frame(&mut v_frame).is_ok() {
-            if i_frame > 100 {
-                return Ok(());
-            }
-
+        if decoder.receive_frame(&mut v_frame).is_ok() {
             let mut rgb_frame = Video::empty();
-            scaler_ctx.run(&v_frame, &mut rgb_frame);
+            scaler_ctx.run(&v_frame, &mut rgb_frame)?;
 
-            use image::{Rgb, Rgba};
+            use image::Rgba;
             let im: ImageBuffer<Rgba<u8>, Vec<u8>> =
                 ImageBuffer::from_vec(out_width, out_height, rgb_frame.data(0).to_vec())
                     .ok_or_else(|| anyhow::Error::msg("Cannot create ImageBuffer"))?;
-            let out_path = format!("{}/{}.jpg", out_dir, i_frame);
+            let out_path = format!("{}/output.jpg", out_dir);
             im.save(&out_path)?;
             return Ok(());
-
-            i_frame += 1;
         }
     }
 
